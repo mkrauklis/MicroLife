@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+       xmlns:android="http://schemas.android.com/apk/res/android"
+       xmlns:robobunny="http://robobunny.com"
+       android:key="preferences">
+	<PreferenceCategory android:title="Preferences">
+		<com.robobunny.SeekBarPreference
+			android:key="microbeSize" android:title="Microbe Size"
+			android:summary="The size of the microbes on the screen. If there are too many (the size is small) it could impact performance." android:defaultValue="3" android:max="100"
+			robobunny:min="1" robobunny:unitsLeft="" robobunny:unitsRight="" />
+		<com.robobunny.SeekBarPreference
+			android:key="teraDelta" android:title="Food Growth Rate"
+			android:summary="How quickly food grows back." android:defaultValue="3" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="microbeVoracity" android:title="Microbe Voracity"
+			android:summary="How quickly microbes consume food and grow." android:defaultValue="10" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="matingThreshold" android:title="Mating Threshold"
+			android:summary="Health of neighbors required to reproduce." android:defaultValue="70" android:max="400"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="costOfLife" android:title="Cost of Mating"
+			android:summary="The health cost of reproduction." android:defaultValue="25" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="phageVoracity" android:title="Phage Voracity"
+			android:summary="How quickly phages consume their host's health and take it for their own." android:defaultValue="25" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="infectionDeathThreshold" android:title="Infection Death Threshold"
+			android:summary="The level at which the phage has compromised its host, kills it, and spills infects neighbors." android:defaultValue="50" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="phageDurability" android:title="Phage Durability"
+			android:summary="How robust phages are when there is no host present." android:defaultValue="90" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+		<com.robobunny.SeekBarPreference
+			android:key="newInfectionStrength" android:title="New Infection Strength"
+			android:summary="When a microbe dies via phage infection and the phages infect neighboring cells, the strength of the new infections." android:defaultValue="25" android:max="100"
+			robobunny:min="0" robobunny:unitsLeft="" robobunny:unitsRight="%" />
+	</PreferenceCategory>
+</PreferenceScreen>
