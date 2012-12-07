@@ -17,7 +17,7 @@ public abstract class RunThread extends Thread implements Renderer {
 
 	public void onSurfaceChanged(GL10 gl, int width, int height) {
 		Log.d(TAG, "onSurfaceChanged");
-		
+
 		if (height == 0) { // Prevent A Divide By Zero By
 			height = 1; // Making Height Equal One
 		}
@@ -38,7 +38,7 @@ public abstract class RunThread extends Thread implements Renderer {
 		// TODO
 	}
 
-	private static final String TAG = MicroLifeRunThread.class.getName();
+	private static final String TAG = RunThread.class.getName();
 
 	protected Context context;
 	private ThreadState state = ThreadState.Initial;
@@ -118,7 +118,6 @@ public abstract class RunThread extends Thread implements Renderer {
 					}
 				} else {
 					synchronized (this) {
-						long start = System.currentTimeMillis();
 						if (isRunning()) {
 							long timeElapsedSinceLastUpdate = System
 									.currentTimeMillis() - lastModelUpdate;
@@ -128,9 +127,6 @@ public abstract class RunThread extends Thread implements Renderer {
 							updateModel(timeElapsedSinceLastUpdate,
 									lastModelUpdate);
 						}
-						Log.d(TAG,
-								"Update Model ms "
-										+ (System.currentTimeMillis() - start));
 					}
 				}
 			}

@@ -17,32 +17,40 @@ import com.michaelkrauklis.android.thread.RunThread;
 import com.michaelkrauklis.android.view.ClickableGLSurfaceView.IClickable;
 
 public class MicroLifeRunThread extends RunThread implements IClickable {
-	public static class TriangleStrip {
+	public static class Quadrangle {
 
 		private FloatBuffer vertexBuffer; // buffer holding the vertices
 
-		private float vertices[];
+		private float vertices[] = new float[12];
 
-		public TriangleStrip(float vertices[]) {
-			this.vertices = vertices;
-
+		public Quadrangle() {
 			// a float has 4 bytes so we allocate for each coordinate 4 bytes
-			ByteBuffer vertexByteBuffer = ByteBuffer
-					.allocateDirect(vertices.length * 4);
+			ByteBuffer vertexByteBuffer = ByteBuffer.allocateDirect(12 * 4);
+
 			vertexByteBuffer.order(ByteOrder.nativeOrder());
 
 			// allocates the memory from the byte buffer
 			vertexBuffer = vertexByteBuffer.asFloatBuffer();
+		}
 
-			// fill the vertexBuffer with the vertices
-			vertexBuffer.put(vertices);
-
-			// set the cursor position to the beginning of the buffer
-			vertexBuffer.position(0);
+		public void setVertices(float x1, float y1, float x2, float y2,
+				float x3, float y3, float x4, float y4) {
+			vertices[0] = x1;
+			vertices[1] = y1;
+			vertices[3] = x2;
+			vertices[4] = y2;
+			vertices[6] = x3;
+			vertices[7] = y3;
+			vertices[9] = x4;
+			vertices[10] = y4;
 		}
 
 		/** The draw method for the triangle with the GL context */
 		public void draw(GL10 gl, int r, int g, int b) {
+			vertexBuffer.position(0);
+			vertexBuffer.put(vertices);
+			vertexBuffer.position(0);
+
 			gl.glEnableClientState(GL10.GL_VERTEX_ARRAY);
 			// set the colour for the background
 			// gl.glClearColor(0.0f, 0.0f, 0.0f, 0.5f);
@@ -79,19 +87,25 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 	int microbeSize = 3;
 	int microbesHeight = 140 / microbeSize;
 	int microbesWidth = 230 / microbeSize;
-	float teraStateDelta = 0.03f;
-	float microbeVoracity = 0.1f;
-	float matingThreshold = 1f;
-	float costOfLife = 0.25f;
-	float phageVoracity = 0.25f;
+	float teraStateDelta = 0.11f;
+	float microbeVoracity = 0.15f;
+	float matingThreshold = 0.39f;
+	float costOfLife = 0.15f;
+	float phageVoracity = 0.33f;
 	float infectionDeathThreshold = 0.5f;
-	float phageDurability = 0.9f;
+	float phageDurability = 0.74f;
 	float newInfectionStrength = 0.25f;
+	float microbeDurability = 0.5f;
+	boolean isRandomMicrobeReproduction = true;
+	long updateSpeedMax = 400;
+	float updateSpeed = 0.25f;
 
 	int[][] teraState;
 	int[][] microbeState;
 	int[][] phageState;
+	int[][] deltaPhageState;
 	int[][] quarantineState;
+	Quadrangle[][] quadrangles;
 
 	private DrawType drawType = DrawType.BACTERIA;
 
@@ -104,7 +118,7 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 	}
 
 	@Override
-	public synchronized void onDrawFrame(GL10 gl) {
+	public void onDrawFrame(GL10 gl) {
 		gl.glClear(GL10.GL_COLOR_BUFFER_BIT | GL10.GL_DEPTH_BUFFER_BIT);
 		gl.glLoadIdentity();
 		gl.glTranslatef(-1 * microbeState[0].length * microbeSize / 2, -1
@@ -112,7 +126,7 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 		// gl.glScalef(0.75f, 0.75f, 1f);
 
 		// DRAW HERE
-		Log.d(TAG, "Starting Draw");
+		// Log.d(TAG, "Starting Draw");
 
 		for (int i = 0; i < teraState.length; i++) {
 			for (int j = 0; j < teraState[i].length; j++) {
@@ -124,18 +138,18 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 					r = g = b = 155;
 				}
 
-				drawRect(gl, j * microbeSize, i * microbeSize, (j + 1)
+				drawRect(i, j, gl, j * microbeSize, i * microbeSize, (j + 1)
 						* microbeSize, (i + 1) * microbeSize, r, g, b);
 			}
 		}
 
-		Log.d(TAG, "0,0 teraState: " + teraState[0][0]);
+		// Log.d(TAG, "0,0 teraState: " + teraState[0][0]);
 	}
 
-	private void drawRect(GL10 gl, int x1, int y1, int x2, int y2, int r,
-			int g, int b) {
-		new TriangleStrip(new float[] { x1, y1, 0.0f, x1, y2, 0.0f, x2, y1,
-				0.0f, x2, y2, 0.0f }).draw(gl, r, g, b);
+	private void drawRect(int i, int j, GL10 gl, int x1, int y1, int x2,
+			int y2, int r, int g, int b) {
+		quadrangles[i][j].setVertices(x1, y1, x1, y2, x2, y1, x2, y2);
+		quadrangles[i][j].draw(gl, r, g, b);
 	}
 
 	@Override
@@ -148,7 +162,14 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 		teraState = new int[microbesHeight][microbesWidth];
 		microbeState = new int[microbesHeight][microbesWidth];
 		phageState = new int[microbesHeight][microbesWidth];
+		deltaPhageState = new int[microbesHeight][microbesWidth];
 		quarantineState = new int[microbesHeight][microbesWidth];
+		quadrangles = new Quadrangle[microbesHeight][microbesWidth];
+		for (int i = 0; i < microbesHeight; i++) {
+			for (int j = 0; j < microbesWidth; j++) {
+				quadrangles[i][j] = new Quadrangle();
+			}
+		}
 	}
 
 	private void initializeProperties() {
@@ -162,6 +183,8 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 				0.03f);
 		microbeVoracity = sharedPreferences.getFloat(
 				Preferences.MICROBE_VORACITY, 0.1f);
+		microbeDurability = sharedPreferences.getFloat(
+				Preferences.MICROBE_DURABILITY, 0.5f);
 		matingThreshold = sharedPreferences.getFloat(
 				Preferences.MATING_THRESHOLD, 0.7f);
 		costOfLife = sharedPreferences
@@ -174,23 +197,66 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 				Preferences.PHAGE_DURABILITY, 0.9f);
 		newInfectionStrength = sharedPreferences.getFloat(
 				Preferences.NEW_INFECTION_STRENGTH, 0.25f);
+		updateSpeed = sharedPreferences.getFloat(Preferences.UPDATE_SPEED,
+				0.98f);
+		isRandomMicrobeReproduction = sharedPreferences.getBoolean(
+				Preferences.IS_MICROBE_MATING_RANDOM, true);
+
+		long throttle = Math.max(
+				(long) ((1 - updateSpeed) * updateSpeedMax * 10), 50);
+
+		setThreadThrottleMS(throttle);
+
+		// if (Log.isLoggable(TAG, Log.DEBUG)) {
+		Log.d(TAG, "[microbeSize:" + microbeSize + "]");
+		Log.d(TAG, "[microbesHeight:" + microbesHeight + "]");
+		Log.d(TAG, "[microbesWidth:" + microbesWidth + "]");
+		Log.d(TAG, "[teraStateDelta:" + teraStateDelta + "]");
+		Log.d(TAG, "[microbeVoracity:" + microbeVoracity + "]");
+		Log.d(TAG, "[microbeDurability:" + microbeDurability + "]");
+		Log.d(TAG, "[matingThreshold:" + matingThreshold + "]");
+		Log.d(TAG, "[costOfLife:" + costOfLife + "]");
+		Log.d(TAG, "[phageVoracity:" + phageVoracity + "]");
+		Log.d(TAG, "[infectionDeathThreshold:" + infectionDeathThreshold + "]");
+		Log.d(TAG, "[phageDurability:" + phageDurability + "]");
+		Log.d(TAG, "[newInfectionStrength:" + newInfectionStrength + "]");
+		Log.d(TAG, "[updateSpeed:" + updateSpeed + "]");
+		Log.d(TAG, "[throttle:" + throttle + "ms]");
+		Log.d(TAG, "[isRandomMicrobeReproduction:"
+				+ isRandomMicrobeReproduction + "]");
+		// }
 	}
 
 	@Override
 	protected void onPause() {
-		initializeProperties();
 	}
 
 	@Override
 	protected void onUnPause() {
+		initializeProperties();
 	}
 
 	@Override
-	protected synchronized boolean updateModel(long timeElapsedSinceLastUpdate,
+	protected boolean updateModel(long timeElapsedSinceLastUpdate,
 			long currentTime) {
-		for (int i = 0; i < teraState.length; i++) {
-			for (int j = 0; j < teraState[i].length; j++) {
-				updateModelIndex(i, j);
+		// if update speed is 0 update the model (0 = paused)
+		if (updateSpeed != 0) {
+			for (int i = 0; i < teraState.length; i++) {
+				for (int j = 0; j < teraState[i].length; j++) {
+					phageState[i][j] += deltaPhageState[i][j];
+					deltaPhageState[i][j] = stateMinInt;
+					if (phageState[i][j] > stateMaxInt) {
+						phageState[i][j] = stateMaxInt;
+					}
+					if (phageState[i][j] < stateMinInt) {
+						phageState[i][j] = stateMinInt;
+					}
+				}
+			}
+			for (int i = 0; i < teraState.length; i++) {
+				for (int j = 0; j < teraState[i].length; j++) {
+					updateModelIndex(i, j);
+				}
 			}
 		}
 
@@ -221,7 +287,8 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 			}
 
 			// live
-			microbeState[i][j] -= microbeVoracity * stateMax;
+			microbeState[i][j] -= (1 - microbeDurability) * microbeVoracity
+					* stateMax;
 			if (microbeState[i][j] < stateMinInt) {
 				microbeState[i][j] = stateMinInt;
 			}
@@ -229,7 +296,7 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 
 		// mate
 		if (microbeState[i][j] > stateMinInt) {
-			if (teraState[i][j] >= costOfLife * stateMax) {
+			if (microbeState[i][j] >= costOfLife * stateMax) {
 				int lifeScore = 0;
 				if (i > 0) {
 					if (j > 0) {
@@ -250,40 +317,25 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 
 				// we have partners and food, mate
 				if (lifeScore >= matingThreshold * stateMax) {
-					int direction = (int) (Math.random() * 4);
-					switch (direction) {
-					case 0:
-						// north
-						if (i + 1 < microbeState.length
-								&& microbeState[i + 1][j] == stateMinInt
-								&& quarantineState[i + 1][j] == stateMinInt) {
-							microbeState[i + 1][j] = stateMaxInt;
+					if (isRandomMicrobeReproduction) {
+						int direction = (int) (Math.random() * 4);
+						if (direction == 0) {
+							newMicrobeNorth(i, j);
 						}
-						break;
-					case 1:
-						// south
-						if (i > 0 && microbeState[i - 1][j] == stateMinInt
-								&& quarantineState[i - 1][j] == stateMinInt) {
-							microbeState[i - 1][j] = stateMaxInt;
+						if (direction == 1) {
+							newMicrobeSouth(i, j);
 						}
-						break;
-					case 2:
-						// east
-						if (j > 0 && microbeState[i][j - 1] == stateMinInt
-								&& quarantineState[i][j - 1] == stateMinInt) {
-							microbeState[i][j - 1] = stateMaxInt;
+						if (direction == 2) {
+							newMicrobeEast(i, j);
 						}
-						break;
-					case 3:
-						// west
-						if (j + 1 < microbeState[i].length
-								&& microbeState[i][j + 1] == stateMinInt
-								&& quarantineState[i][j + 1] == stateMinInt) {
-							microbeState[i][j + 1] = stateMaxInt;
+						if (direction == 3) {
+							newMicrobeWest(i, j);
 						}
-						break;
-					default:
-						// do nothing
+					} else {
+						newMicrobeNorth(i, j);
+						newMicrobeSouth(i, j);
+						newMicrobeEast(i, j);
+						newMicrobeWest(i, j);
 					}
 					microbeState[i][j] -= costOfLife * stateMax;
 					if (microbeState[i][j] < stateMinInt) {
@@ -295,44 +347,67 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 
 		if (phageState[i][j] > stateMinInt) {
 			if (microbeState[i][j] > stateMinInt) {
-				phageState[i][j] += phageVoracity * stateMax;
+				deltaPhageState[i][j] += phageVoracity * stateMax;
 				microbeState[i][j] -= phageVoracity * stateMax;
-				if (phageState[i][j] > stateMaxInt) {
-					phageState[i][j] = stateMaxInt;
-				}
 				if (microbeState[i][j] < stateMinInt) {
 					microbeState[i][j] = stateMinInt;
+				} else if (phageState[i][j] >= stateMaxInt
+						* infectionDeathThreshold) {
+					microbeState[i][j] = stateMinInt;
+
+					int newInfectionState = (int) (stateMaxInt * newInfectionStrength);
+
+					// north
+					if (i + 1 < microbeState.length) {
+						deltaPhageState[i + 1][j] = newInfectionState;
+					}
+					// south
+					if (i > 0) {
+						deltaPhageState[i - 1][j] = newInfectionState;
+					}
+					// east
+					if (j > 0) {
+						deltaPhageState[i][j - 1] = newInfectionState;
+					}
+					// west
+					if (j + 1 < microbeState[i].length) {
+						deltaPhageState[i][j + 1] = newInfectionState;
+					}
 				}
 			} else {
-				phageState[i][j] -= (1 - phageDurability) * phageVoracity
+				deltaPhageState[i][j] -= (1 - phageDurability) * phageVoracity
 						* stateMax;
-				if (phageState[i][j] < stateMinInt) {
-					phageState[i][j] = stateMinInt;
-				}
 			}
+		}
+	}
 
-			if (phageState[i][j] >= stateMaxInt * infectionDeathThreshold) {
-				microbeState[i][j] = stateMinInt;
+	private void newMicrobeWest(int i, int j) {
+		if (j + 1 < microbeState[i].length
+				&& microbeState[i][j + 1] == stateMinInt
+				&& quarantineState[i][j + 1] == stateMinInt) {
+			microbeState[i][j + 1] = stateMaxInt;
+		}
+	}
 
-				int newInfectionState = (int) (stateMaxInt * newInfectionStrength);
+	private void newMicrobeEast(int i, int j) {
+		if (j > 0 && microbeState[i][j - 1] == stateMinInt
+				&& quarantineState[i][j - 1] == stateMinInt) {
+			microbeState[i][j - 1] = stateMaxInt;
+		}
+	}
 
-				// north
-				if (i + 1 < microbeState.length) {
-					phageState[i + 1][j] = newInfectionState;
-				}
-				// south
-				if (i > 0) {
-					phageState[i - 1][j] = newInfectionState;
-				}
-				// east
-				if (j > 0) {
-					phageState[i][j - 1] = newInfectionState;
-				}
-				// west
-				if (j + 1 < microbeState[i].length) {
-					phageState[i][j + 1] = newInfectionState;
-				}
-			}
+	private void newMicrobeSouth(int i, int j) {
+		if (i > 0 && microbeState[i - 1][j] == stateMinInt
+				&& quarantineState[i - 1][j] == stateMinInt) {
+			microbeState[i - 1][j] = stateMaxInt;
+		}
+	}
+
+	private void newMicrobeNorth(int i, int j) {
+		if (i + 1 < microbeState.length
+				&& microbeState[i + 1][j] == stateMinInt
+				&& quarantineState[i + 1][j] == stateMinInt) {
+			microbeState[i + 1][j] = stateMaxInt;
 		}
 	}
 
@@ -346,27 +421,29 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 				- (int) (event.getY() / height * theArray.length);
 		int x = (int) (event.getX() / width * theArray[0].length);
 
-		int originalTeraState = teraState[y][x];
+		if (y >= 0 && x >= 0 && y < theArray.length && x < theArray[y].length) {
+			int originalTeraState = teraState[y][x];
 
-		switch (drawType) {
-		case BACTERIA:
-			theArray = microbeState;
-			break;
-		case FOOD:
-			theArray = teraState;
-			break;
-		case PHAGE:
-			theArray = phageState;
-			break;
-		case QUARANTINE:
-			theArray = quarantineState;
-			break;
-		}
-		microbeState[y][x] = teraState[y][x] = phageState[y][x] = quarantineState[y][x] = stateMinInt;
-		theArray[y][x] = stateMaxInt;
+			switch (drawType) {
+			case BACTERIA:
+				theArray = microbeState;
+				break;
+			case FOOD:
+				theArray = teraState;
+				break;
+			case PHAGE:
+				theArray = phageState;
+				break;
+			case QUARANTINE:
+				theArray = quarantineState;
+				break;
+			}
+			microbeState[y][x] = teraState[y][x] = phageState[y][x] = deltaPhageState[y][x] = quarantineState[y][x] = stateMinInt;
+			theArray[y][x] = stateMaxInt;
 
-		if (drawType == DrawType.BACTERIA) {
-			teraState[y][x] = originalTeraState;
+			if (drawType == DrawType.BACTERIA) {
+				teraState[y][x] = originalTeraState;
+			}
 		}
 
 		return true;
