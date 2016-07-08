@@ -239,7 +239,7 @@ public class MicroLifeRunThread extends RunThread implements IClickable {
 	@Override
 	protected boolean updateModel(long timeElapsedSinceLastUpdate,
 			long currentTime) {
-		// if update speed is 0 update the model (0 = paused)
+		// if update speed is not 0 update the model (0 = paused)
 		if (updateSpeed != 0) {
 			for (int i = 0; i < teraState.length; i++) {
 				for (int j = 0; j < teraState[i].length; j++) {
